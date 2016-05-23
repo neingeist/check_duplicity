@@ -1,0 +1,78 @@
+#!/usr/bin/python3
+"""Check the age of a duplicity backup."""
+
+from __future__ import division, print_function
+from future.moves.subprocess import check_output
+import argparse
+import time
+
+
+def run_duplicity_collection_status(location):
+    """Run 'duplicity collection-status' on given backup location."""
+    out = check_output(["duplicity", "collection-status", location])
+    out = out.decode('utf-8')
+    return out
+
+
+def last_backups(location):
+    """Get the last backup times on given backup location."""
+    out = run_duplicity_collection_status(location)
+
+    # Sample output:
+    #
+    # Found primary backup chain with matching signature chain:
+    # -------------------------
+    # Chain start time: Wed May 18 21:47:38 2016
+    # Chain end time: Fri May 20 19:59:45 2016
+    # Number of contained backup sets: 2
+    # Total number of contained volumes: 1114
+    #  Type of backup set:                            Time:      Num volumes:
+    #                 Full         Wed May 18 21:47:38 2016              1113
+    #          Incremental         Fri May 20 19:59:45 2016                 1
+    # -------------------------
+    # No orphaned or incomplete backup sets found.
+
+    # Code mostly from:
+    # https://github.com/KwadroNaut/duplicity-backup-status
+
+    lastfull = lastinc = 0
+
+    for line in out.split("\n"):
+        parts = line.split()
+        if len(parts) == 7 and parts[0] in ["Full", "Incremental"]:
+            backuptime = time.mktime(
+                    time.strptime(" ".join(parts[1:6]), "%a %b %d %H:%M:%S %Y")
+                    )
+
+            if parts[0] == "Incremental" and lastinc < backuptime:
+                lastinc = backuptime
+            elif parts[0] == "Full" and lastfull < backuptime:
+                lastfull = backuptime
+
+    # Count a full backup as incremental backup
+    lastinc = max(lastfull, lastinc)
+
+    return (lastfull, lastinc)
+
+
+def main():
+
+    parser = argparse.ArgumentParser(description='Check a duplicity backup.')
+    parser.add_argument('location', metavar='LOCATION', type=str,
+                        help='the duplicity backup location (URL)')
+    parser.add_argument('-c', dest='crit', default=14*24*3600,
+                        help='backup age considered critical, '
+                             'in seconds (default: two weeks)')
+    args = parser.parse_args()
+
+    _, lastbackup = last_backups(args.location)
+
+    if lastbackup < time.time() - args.crit:
+        print("CRIT: Last backup too old: {}".format(time.ctime(lastbackup)))
+        exit(2)
+    else:
+        print("OK: Last backup just fine: {}".format(time.ctime(lastbackup)))
+        exit(0)
+
+
+main()
