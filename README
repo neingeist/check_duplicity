@@ -1,0 +1,10 @@
+usage: check_duplicity [-h] [-c CRIT] LOCATION
+
+Check a duplicity backup.
+
+positional arguments:
+  LOCATION    the duplicity backup location (URL)
+
+optional arguments:
+  -h, --help  show this help message and exit
+  -c CRIT     backup age considered critical, in seconds (default: two weeks)
