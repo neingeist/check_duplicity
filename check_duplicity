@@ -2,14 +2,16 @@
 """Check the age of a duplicity backup."""
 
 from __future__ import division, print_function
-from future.moves.subprocess import check_output
+import future.moves.subprocess as subprocess
 import argparse
 import time
 
 
 def run_duplicity_collection_status(location):
     """Run 'duplicity collection-status' on given backup location."""
-    out = check_output(["duplicity", "collection-status", location])
+    out = subprocess.check_output(
+            ["duplicity", "collection-status", location],
+            stderr=subprocess.STDOUT)
     out = out.decode('utf-8')
     return out
 
@@ -65,7 +67,15 @@ def main():
                              'in seconds (default: two weeks)')
     args = parser.parse_args()
 
-    _, lastbackup = last_backups(args.location)
+    try:
+        _, lastbackup = last_backups(args.location)
+    except OSError as e:
+        print("CRIT: {}".format(e.strerror))
+        exit(2)
+    except subprocess.CalledProcessError as e:
+        print("CRIT: duplicity returned {}, {}".format(
+            e.returncode, e.output.decode('ascii')))
+        exit(2)
 
     if lastbackup < time.time() - args.crit:
         print("CRIT: Last backup too old: {}".format(time.ctime(lastbackup)))
