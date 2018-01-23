@@ -1,6 +1,7 @@
 usage: check_duplicity [-h] [-c CRIT] LOCATION
 
-Check a duplicity backup.
+Check a duplicity backup. This Nagios plugin should be run as a passive check
+because of its long run-time.
 
 positional arguments:
   LOCATION    the duplicity backup location (URL)
